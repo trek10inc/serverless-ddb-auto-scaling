@@ -1,0 +1,26 @@
+{
+  "name": "serverless-ddb-auto-scaling",
+  "version": "0.0.1",
+  "description": "Serverless framework plugin to add autoscaling resources for dynamodb tables names in the resources section of your serverless.yml",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/trek10inc/serverless-ddb-auto-scaling.git"
+  },
+  "keywords": [
+    "serverless",
+    "dynamodb",
+    "auto",
+    "scale",
+    "autoscale"
+  ],
+  "author": "David Nadaraia",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/trek10inc/serverless-ddb-auto-scaling/issues"
+  },
+  "homepage": "https://github.com/trek10inc/serverless-ddb-auto-scaling#readme"
+}
