@@ -6,6 +6,7 @@ module.exports.transformDdbTables = function (serverless) {
   const resources = serverless.service.resources.Resources;
 
   let addAutoScaleRole = false;
+  let allConditions = new Set();
 
   Object.getOwnPropertyNames(resources)
     .filter(resName => resources[resName].Type === "AWS::DynamoDB::Table")
@@ -21,8 +22,23 @@ module.exports.transformDdbTables = function (serverless) {
         getScalingOptions(resName, "", "Read", scaleConfig.ReadCapacity, table.Properties.ProvisionedThroughput),
         getScalingOptions(resName, "", "Write", scaleConfig.WriteCapacity, table.Properties.ProvisionedThroughput)
       ].filter(x => x).forEach(scalingOptions => {
-        resources[`${resName}${scalingOptions.dim}ScalableTarget`] = builders.scalableTargetBuilder(scalingOptions);
-        resources[`${resName}${scalingOptions.dim}ScalingPolicy`] = builders.scalingPolicyBuilder(scalingOptions);
+        const targetName = `${resName}${scalingOptions.dim}ScalableTarget`;
+        const policyName = `${resName}${scalingOptions.dim}ScalingPolicy`;
+
+        const target = builders.scalableTargetBuilder(scalingOptions);
+        const policy = builders.scalingPolicyBuilder(scalingOptions);
+
+        target.DependsOn = resName;
+        policy.DependsOn = targetName;
+
+        if (table.Condition) {
+          allConditions.add(table.Condition);
+          target.Condition = table.Condition;
+          policy.Condition = table.Condition;
+        }
+
+        resources[targetName] = target;
+        resources[policyName] = policy;
       });
 
       (table.Properties.GlobalSecondaryIndexes || []).forEach(index => {
@@ -37,14 +53,35 @@ module.exports.transformDdbTables = function (serverless) {
           getScalingOptions(resName, index.IndexName, "Write", scaleConfig.WriteCapacity, index.ProvisionedThroughput)
         ].filter(x => x).forEach(scalingOptions => {
           const indexResName = builders.resourceNameBuilder(index.IndexName);
-          resources[`${resName}Index${indexResName}${scalingOptions.dim}ScalableTarget`] = builders.scalableTargetBuilder(scalingOptions);
-          resources[`${resName}Index${indexResName}${scalingOptions.dim}ScalingPolicy`] = builders.scalingPolicyBuilder(scalingOptions);
+
+          const targetName = `${resName}Index${indexResName}${scalingOptions.dim}ScalableTarget`;
+          const policyName = `${resName}Index${indexResName}${scalingOptions.dim}ScalingPolicy`;
+
+          const target = builders.scalableTargetBuilder(scalingOptions);
+          const policy = builders.scalingPolicyBuilder(scalingOptions);
+
+          target.DependsOn = resName;
+          policy.DependsOn = targetName;
+
+          if (table.Condition) {
+            target.Condition = table.Condition;
+            policy.Condition = table.Condition;
+          }
+
+          resources[targetName] = target;
+          resources[policyName] = policy;
         });
       });
     });
 
   if (addAutoScaleRole) {
     resources.DdbAutoScaleRole = builders.ddbAutoScaleRoleBuilder();
+    allConditions = Array.from(allConditions);
+
+    // if all tables have same condition set it for role as well
+    if (allConditions.length === 1) {
+      resources.DdbAutoScaleRole.Condition = allConditions[0];
+    }
   }
 };
 
